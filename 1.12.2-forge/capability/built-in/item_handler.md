@@ -1,0 +1,28 @@
+IItemHandler这一Forge内建的Capability，可以说，算是被使用得最广泛的Forge Capability了，没有之一。
+
+该接口取代了原版使用的`IInventory`和`ISidedInventory`这两个接口，抽象了对于物品容器的一系列操作，包括查询、取物品、模拟取物品、置入物品、模拟置入物品等；其实现类还允许你直接对容器内的ItemStack进行操作。
+
+在Forge的一番hook后，几乎所有原版的物品容器（潜影盒及其物品形式，箱子，马等）都支持了这种Capability。
+
+该Capability的Token是`CapabilityItemHandler.ITEM_HANDLER_CAPABILITY`，接口为`IItemHandler`，默认实现类为`ItemStackHandler`。
+
+> NOTE：需要注意的是，一个可以存放物品、支持`ITEM_HANDLER_CAPABILITY`的物品容器（最常见的就是一个TileEntity），它也只是有存储物品且能让物品和外界存在交互的功能，而并不必然有原版容器通常会有的GUI交互界面——换言之，GuiContainer、Container等并不会在本篇教程中被提及——尽管大部分时候一个好用的容器几乎必然要有一个GUI交互界面。
+
+## ItemStackHandler
+在使用Forge内建的Capability时，我们一般都不用直接自己实现其接口，都用Forge提供好的现成的包装过的实现类就好，物品容器这一Capability自然也是这样——直接用ItemStackHandler就可以了。
+
+观察ItemStackHandler的构造方法，其中有一个最为重要：接受一个int量。这个int其实就代表了：该ItemStackHandler中的“物品槽位的数量”，我们可以通过`#getStackInSlot`来根据槽位编号来获取对应槽位中的ItemStack，也可以通过`#setStackInSlot`来设置某个槽位中的ItemStack。编号和数组序数一样，都是从0开始。
+
+然后是`#insertItem`以及`#extractItem`，它们都有一个名为simulate的boolean参数。simulate意为“模拟”，这其实就是在确定“置入或取出物品的操作是否有实际效果，或者说是否仅仅是测试”。它们的返回值都是“最终留在容器外的ItemStack”。
+
+这两个方法的返回值可以被直接操作或改变其内部状态，但`#getStackInSlot`的返回值不可以。总结一下就是：任何还存储在ItemStackHandler容器内的ItemStack对象，它本身及其内部状态都应当是不可变的，否则会出现不可预知的问题，或者直接抛出异常。
+
+最后是`#isItemValid`，用于检验放入某一槽位的ItemStack“是否合法”，默认永远返回true，你可以通过覆写它，来实现：类似于原版熔炉的燃料槽只能放入燃料物品的效果。
+
+### TileEntity的特殊情形：基于不同方块面的不同行为
+这是个非常常见的需求，很多方块实体形式的物品容器都会区分输入格和输出格，并指定它们各自所对应的面（EnumFacing）。ItemStackHandler本身判断不了其他存在到底是从哪个方块面访问并操作它，但我们注意到`ICapabilityProvider#getCapability`中有一个EnumFacing形参，因此我们可以针对它来判断——我们可以定义不止一个ItemStackHandler，通过传入getCapability的EnumFacing判断到底要把哪个ItemStackHandler暴露出去。
+
+对于漏斗这种，输入和输出都是共享一套物品槽，但是交互行为类型随着方块面不同而发生变化的容器，你可以选择定义2个ItemStackHandler，并共享它们的数据；也可以自己从头实现IItemHandler以实现更高级的功能控制；或使用下文即将提到的包装类。
+
+## 其他IItemHandler的实现
+你可以在包`net.minecraftforge.items.wrapper`下找到一系列包装类，从封装原版的IInventory和ISidedInventory，到合并多个IItemHandler实例为一个总的IItemHandler，再到选择性暴露一部分物品槽的包装类，应有尽有，读者可以根据自己的实际需求选用合适的包装类。
